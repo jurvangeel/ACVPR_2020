@@ -1,4 +1,4 @@
-function [Lines,Bars] = BarDetection(IM)
+function [Lines,Bars, Stafspace] = BarDetection(IM)
 %Blad1 = imresize(IM,400/size(IM,2));
 Blad1 = IM; %why? you are not using IM again for sth else
 
@@ -19,30 +19,36 @@ Lines2 = imresize(Lines, [size(Blad1,1) size(Blad1,2)], 'nearest');
 % Lines = imcomplement(Lines);
 % return
 %% use when bars do not neatly match on first attempt
-Bars = find(Lines);
+Bars = find(Lines);                     % 1nd col: y value of a lines
 Bars2 = [0; Bars];
 Bars(:,2) = [Bars - Bars2(1:end-1)];    % 2nd col: Distance between lines
 
+[GC,GR] = groupcounts(Bars(:,2)); 
+[trash, I] = max(GC);
+Distances = dist(GR');
+Distances = Distances(I,:);
+Used = Distances < GR(I) / 2;
 
-staff_space =  frequency(Bars(:,2));
-Bars(find(Bars(:,2)>staff_space+15),3) = 1;         %3rd col: 1 indicates the start of a new "staffline block". 
+Stafspace = (Used*(GC.*GR))/(Used*GC) % calc the mean staff space 
 
-split = [find(Bars(:,2)>staff_space+2); size(Bars,1)+1]; %indicate cols where staffspace is higher, last row is number of cols +1 %+2 could be replaced with StDev. of small values in Bars
-for i = size(split)-1:-1:1                      %start at size -1, go backwards
-     if (split(i+1) - split(i) < 5)             %if there are less lines than 5 in a "staffline blocks" %parameter  
-         Lines(Bars(split(i),1))= 0;            %erase a line at the start of a new block?
-     elseif (split(i+1) - split(i) > 5)         % %parameter
-         Local = Bars(split(i)+1:split(i+1)-1,2); %get the staffspace of the 2nd and last line of a staff line block
-         Local = abs(Local-mean(Local));           %subtract the mean from these values
-         for j = 6:split(i+1) - split(i)             %should be size(split), not 6?  (6:5?)
-            if find(Local==max(Local))<(length(Local)/2)  %?
-                Lines(Bars(split(i)+min(find(Local==max(Local)))-1,:))=0;
-            else
-                Lines(Bars(split(i)+max(find(Local==max(Local))),:))=0;
-            end
-         end
-     end
-end
+Bars(find(Bars(:,2)>floor(Stafspace*2)),3) = 1;         %3rd col: 1 indicates the start of a new "staffline block". 
+
+% split = [find(Bars(:,3)); size(Bars,1)+1]; %indicate cols where staffspace is higher, last row is number of cols +1 %+2 could be replaced with StDev. of small values in Bars
+% for i = size(split)-1:-1:1                      %start at size -1, go backwards
+%      if (split(i+1) - split(i) < 5)             %if there are less lines than 5 in a "staffline blocks" %parameter  
+%          Lines(Bars(split(i),1))= 0;            %erase a line at the start of a new block?
+%      elseif (split(i+1) - split(i) > 5)         % %parameter
+%          Local = Bars(split(i)+1:split(i+1)-1,2); %get the staffspace of the 2nd and last line of a staff line block
+%          Local = abs(Local-mean(Local));           %subtract the mean from these values
+%          for j = 6:split(i+1) - split(i)             %is for all the extra staflines (so line 6 till x)
+%             if find(Local==max(Local))<(length(Local)/2)  %?
+%                 Lines(Bars(split(i)+min(find(Local==max(Local)))-1,:))=0;
+%             else
+%                 Lines(Bars(split(i)+max(find(Local==max(Local))),:))=0;
+%             end
+%          end
+%      end
+% end
 
 Lines = imresize(Lines, [size(Blad1,1) size(Blad1,2)], 'nearest');  %Create lines based on size of image 
 
@@ -54,6 +60,9 @@ Lines = imresize(Lines, [size(Blad1,1) size(Blad1,2)], 'nearest');  %Create line
 
 Lines = imcomplement(Lines);
 %Lines = imresize(Lines,size(IM));
+
+%GMModel = fitgmdist(Bars(:,2),2)
+
 return
 
 end
